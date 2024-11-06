@@ -1,0 +1,30 @@
+# Test Image
+FROM node:lts-alpine as builder
+
+WORKDIR /app
+COPY package.json yarn.lock ./
+
+RUN set -x && npm --production=false
+
+COPY . .
+
+RUN npm run  build
+
+# Production Image
+FROM node:lts-alpine as main
+
+
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+WORKDIR /app
+EXPOSE 3000
+
+COPY package.json yarn.lock ./
+RUN touch .env
+
+RUN set -x && npm --production=true
+
+COPY --from=builder /app/dist ./dist
+
+CMD ["npm", "run","start:prod"]

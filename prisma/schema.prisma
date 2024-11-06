@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum ENUM_LOGGER_LEVEL {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+enum ENUM_LOGGER_ACTION {
+  LOGIN
+  GET
+  CREATE
+  UPDATE
+  DELETE
+  TEST
+}
+
+model Logger {
+  id          String   @id @default(cuid())
+  level       String
+  action      String
+  method      String
+  requestId   String?
+  user        String?
+  role        String?
+  apiKey      String?
+  anonymous   Boolean  @default(true)
+  accessFor   String?
+  description String
+  path        String?
+  tags        String[]
+  params      String   @default("{}")  // Stored as JSON string
+  bodies      String   @default("{}")  // Stored as JSON string
+  statusCode  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([level])
+  @@map("logs")
+}
+
+enum ENUM_SETTING_DATA_TYPE {
+  BOOLEAN
+  STRING
+  ARRAY_OF_STRING
+  NUMBER
+}
+
+model Setting {
+  id          String                  @id @default(cuid())
+  name        String                  @unique
+  description String?
+  type        ENUM_SETTING_DATA_TYPE?
+  value       String
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([name])
+  @@map("settings")
+}
+
+enum ENUM_PERMISSION_GROUP {
+  USER
+  ROLE
+  PERMISSION
+  SETTING
+}
+
+enum ENUM_ACCESS_FOR {
+  SUPER_ADMIN
+  USER
+  AUTHOR
+}
+
+model Role {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  isActive  Boolean         @default(true)
+  accessFor ENUM_ACCESS_FOR
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  permissions RolePermission[]
+  User        User[]
+
+  @@index([isActive, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String                @id @default(cuid())
+  code        String                @unique @db.VarChar(25)
+  group       ENUM_PERMISSION_GROUP
+  description String                @db.VarChar(255)
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  roles RolePermission[]
+
+  @@index([code])
+  @@index([group])
+  @@index([isActive])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id       String @id @default(cuid())
+  fullName String @db.VarChar(100)
+  email    String @unique @db.VarChar(100)
+  jobTitle String
+
+  role String @db.VarChar(100) @default("USER")
+
+  password          String   @db.VarChar(255)
+  passwordExpired   DateTime 
+  passwordCreated   DateTime
+  passwordAttempt   Int       @default(0)
+  signUpDate        DateTime? 
+  salt              String
+  isActive          Boolean   @default(true)
+  inactivePermanent Boolean   @default(false)
+  inactiveDate      DateTime?
+  blocked           Boolean   @default(false)
+  blockedDate       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  roles Role @relation(fields: [role], references: [id], onDelete: SetDefault)
+
+  @@index([fullName])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([inactivePermanent])
+  @@index([blocked])
+  @@map("users")
+}
